@@ -18,9 +18,11 @@ namespace BookMate.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] string? search)
         {
-            var books = await _bookService.GetAllAsync();
+            var books = string.IsNullOrWhiteSpace(search)
+                ? await _bookService.GetAllAsync()
+                : await _bookService.SearchAsync(search);
             return Ok(books);
         }
 

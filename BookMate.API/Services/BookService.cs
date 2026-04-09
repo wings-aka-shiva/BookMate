@@ -46,6 +46,12 @@ namespace BookMate.API.Services
             return MapToDto(created);
         }
 
+        public async Task<List<BookDto>> SearchAsync(string query)
+        {
+            var books = await _bookRepo.SearchAsync(query);
+            return books.Select(MapToDto).ToList();
+        }
+
         private static BookDto MapToDto(Book book) => new BookDto
         {
             Id = book.Id,

@@ -39,5 +39,12 @@ namespace BookMate.API.Repositories
         {
             return await _db.Books.AnyAsync(b => b.Isbn == isbn);
         }
+
+        public async Task<List<Book>> SearchAsync(string query)
+        {
+            return await _db.Books
+                .Where(b => b.Title.ToLower().Contains(query.ToLower()))
+                .ToListAsync();
+        }
     }
 }
