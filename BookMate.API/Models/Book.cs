@@ -10,5 +10,7 @@ namespace BookMate.API.Models
         public int PublishedYear { get; set; }
         public string? CoverImage { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public ICollection<Listing> Listings { get; set; } = new List<Listing>();
     }
 }

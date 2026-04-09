@@ -42,6 +42,8 @@ builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BookRepository>();
 builder.Services.AddScoped<BookService>();
+builder.Services.AddScoped<ListingRepository>();
+builder.Services.AddScoped<ListingService>();
 
 // CORS
 builder.Services.AddCors(options =>

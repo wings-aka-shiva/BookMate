@@ -10,5 +10,6 @@ namespace BookMate.API.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Book> Books { get; set; }
+        public DbSet<Listing> Listings { get; set; }
     }
 }
