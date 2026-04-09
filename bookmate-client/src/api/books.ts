@@ -27,3 +27,6 @@ export const getBook = (id: string) =>
 
 export const createBook = (data: CreateBookDto) =>
   api.post<BookDto>('/books', data);
+
+export const searchBooks = (query: string) =>
+  api.get<BookDto[]>('/books', { params: { search: query } });

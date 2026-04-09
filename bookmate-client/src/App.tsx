@@ -4,10 +4,16 @@ import Register from './pages/Register'
 import Profile from './pages/Profile'
 import Books from './pages/Books'
 import BookDetail from './pages/BookDetail'
+import Listings from './pages/Listings'
+import ListingDetail from './pages/ListingDetail'
+import CreateListing from './pages/CreateListing'
+import Navbar from './components/Navbar'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
     <BrowserRouter>
+      <Navbar />
       <Routes>
         <Route path="/" element={<div>Home</div>} />
         <Route path="/login" element={<Login />} />
@@ -15,6 +21,15 @@ function App() {
         <Route path="/profile/:id" element={<Profile />} />
         <Route path="/books" element={<Books />} />
         <Route path="/books/:id" element={<BookDetail />} />
+        <Route path="/listings" element={
+          <ProtectedRoute><Listings /></ProtectedRoute>
+        } />
+        <Route path="/listings/create" element={
+          <ProtectedRoute><CreateListing /></ProtectedRoute>
+        } />
+        <Route path="/listings/:id" element={
+          <ProtectedRoute><ListingDetail /></ProtectedRoute>
+        } />
       </Routes>
     </BrowserRouter>
   )
