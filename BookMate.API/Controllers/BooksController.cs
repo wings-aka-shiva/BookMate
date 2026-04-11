@@ -11,10 +11,12 @@ namespace BookMate.API.Controllers
     public class BooksController : ControllerBase
     {
         private readonly BookService _bookService;
+        private readonly ListingService _listingService;
 
-        public BooksController(BookService bookService)
+        public BooksController(BookService bookService, ListingService listingService)
         {
             _bookService = bookService;
+            _listingService = listingService;
         }
 
         [HttpGet]
@@ -42,7 +44,11 @@ namespace BookMate.API.Controllers
         }
 
         [HttpGet("{id:guid}/listings")]
-        public IActionResult GetListings(Guid id) => Ok(new List<object>());
+        public async Task<IActionResult> GetListings(Guid id)
+        {
+            var listings = await _listingService.GetByBookIdAsync(id);
+            return Ok(listings);
+        }
 
         [HttpGet("{id:guid}/groups")]
         public IActionResult GetGroups(Guid id) => Ok(new List<object>());

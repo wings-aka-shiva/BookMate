@@ -41,7 +41,7 @@ namespace BookMate.API.Repositories
         public async Task<List<Listing>> GetByBookIdAsync(Guid bookId)
         {
             return await _db.Listings
-                .Where(l => l.BookId == bookId)
+                .Where(l => l.BookId == bookId && l.Status == "Active")
                 .Include(l => l.User)
                 .ToListAsync();
         }

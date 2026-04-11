@@ -1,20 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { BookDto } from '../api/books';
+import type { ListingDto } from '../api/listings';
 import { getBook } from '../api/books';
+import api from '../api/axios';
+
+const getBookListings = (bookId: string) =>
+  api.get<ListingDto[]>(`/books/${bookId}/listings`);
 
 export default function BookDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [book, setBook]       = useState<BookDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [book, setBook]         = useState<BookDto | null>(null);
+  const [listings, setListings] = useState<ListingDto[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
 
   useEffect(() => {
     if (!id) return;
-    getBook(id)
-      .then(res => setBook(res.data))
+    Promise.all([getBook(id), getBookListings(id)])
+      .then(([bookRes, listingsRes]) => {
+        setBook(bookRes.data);
+        setListings(listingsRes.data);
+      })
       .catch(() => setError('Book not found.'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -45,16 +54,45 @@ export default function BookDetail() {
             </div>
 
             <div style={styles.metaGrid}>
-              <Field label="ISBN"            value={book.isbn} />
-              <Field label="Published"       value={String(book.publishedYear)} />
+              <Field label="ISBN"      value={book.isbn} />
+              <Field label="Published" value={String(book.publishedYear)} />
             </div>
           </div>
         </div>
       </div>
 
       <div style={styles.card}>
-        <h3 style={styles.sectionTitle}>Listings</h3>
-        <p style={styles.muted}>No listings yet for this book.</p>
+        <h3 style={styles.sectionTitle}>
+          Active Listings
+          {listings.length > 0 && (
+            <span style={styles.count}>{listings.length}</span>
+          )}
+        </h3>
+
+        {listings.length === 0 ? (
+          <p style={styles.muted}>No active listings for this book yet.</p>
+        ) : (
+          <div style={styles.listingList}>
+            {listings.map(l => (
+              <div
+                key={l.id}
+                style={styles.listingCard}
+                onClick={() => navigate(`/listings/${l.id}`)}
+              >
+                <div style={styles.listingLeft}>
+                  <p style={styles.listingOwner}>{l.userDisplayName}</p>
+                  <p style={styles.listingDate}>
+                    Listed {new Date(l.listedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div style={styles.listingRight}>
+                  <Tag text={l.condition}    color="#6366f1" bg="#eef2ff" />
+                  <Tag text={l.exchangeType} color="#059669" bg="#d1fae5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={styles.card}>
@@ -62,6 +100,14 @@ export default function BookDetail() {
         <p style={styles.muted}>No reading groups yet for this book.</p>
       </div>
     </div>
+  );
+}
+
+function Tag({ text, color, bg }: { text: string; color: string; bg: string }) {
+  return (
+    <span style={{ fontSize: '0.72rem', fontWeight: 600, color, background: bg, borderRadius: 6, padding: '0.2rem 0.5rem', whiteSpace: 'nowrap' as const }}>
+      {text}
+    </span>
   );
 }
 
@@ -95,5 +141,12 @@ const styles: Record<string, React.CSSProperties> = {
   genreTag:        { fontSize: '0.75rem', fontWeight: 600, color: '#6366f1', background: '#eef2ff', borderRadius: 6, padding: '0.25rem 0.6rem' },
   metaGrid:        { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.5rem' },
   muted:           { color: '#6b7280', fontSize: '0.875rem', margin: 0 },
-  sectionTitle:    { margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 600 },
+  sectionTitle:    { margin: '0 0 1rem', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' },
+  count:           { background: '#6366f1', color: '#fff', borderRadius: 99, fontSize: '0.72rem', fontWeight: 700, padding: '0.1rem 0.5rem' },
+  listingList:     { display: 'flex', flexDirection: 'column', gap: '0.6rem' },
+  listingCard:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 8, cursor: 'pointer', border: '1px solid #e5e7eb' },
+  listingLeft:     { display: 'flex', flexDirection: 'column', gap: '0.15rem' },
+  listingOwner:    { margin: 0, fontWeight: 600, fontSize: '0.9rem', color: '#1a1a1a' },
+  listingDate:     { margin: 0, fontSize: '0.75rem', color: '#9ca3af' },
+  listingRight:    { display: 'flex', gap: '0.4rem', flexShrink: 0 },
 };
