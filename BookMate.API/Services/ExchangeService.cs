@@ -163,9 +163,16 @@ namespace BookMate.API.Services
             exchange.RejectionReason = dto.RejectionReason;
             await _exchangeRepo.UpdateAsync(exchange);
 
-            // For queued types, advance the queue
+            // For queued types, mark current requester's entry as Passed and advance the queue
             if (exchange.Type == "Temporary" || exchange.Type == "PassItOn")
             {
+                var currentEntry = await _exchangeRepo.GetQueueEntryAsync(exchange.ListingId, exchange.RequesterId);
+                if (currentEntry != null)
+                {
+                    currentEntry.Status = "Passed";
+                    await _exchangeRepo.UpdateQueueEntryAsync(currentEntry);
+                }
+
                 var next = await _exchangeRepo.GetNextInQueueAsync(exchange.ListingId);
                 if (next != null)
                 {
@@ -324,6 +331,13 @@ namespace BookMate.API.Services
                 if (requester != null) requester.ReputationScore += 15;
                 if (owner     != null) owner.ReputationScore     += 5;
                 await _db.SaveChangesAsync();
+
+                var queueEntry = await _exchangeRepo.GetQueueEntryAsync(exchange.ListingId, exchange.RequesterId);
+                if (queueEntry != null)
+                {
+                    queueEntry.Status = "Withdrawn";
+                    await _exchangeRepo.UpdateQueueEntryAsync(queueEntry);
+                }
             }
 
             await _exchangeRepo.UpdateAsync(exchange);
@@ -357,6 +371,13 @@ namespace BookMate.API.Services
                 if (requester != null) requester.ReputationScore += 15;
                 if (owner     != null) owner.ReputationScore     += 5;
                 await _db.SaveChangesAsync();
+
+                var queueEntry = await _exchangeRepo.GetQueueEntryAsync(exchange.ListingId, exchange.RequesterId);
+                if (queueEntry != null)
+                {
+                    queueEntry.Status = "Withdrawn";
+                    await _exchangeRepo.UpdateQueueEntryAsync(queueEntry);
+                }
             }
 
             await _exchangeRepo.UpdateAsync(exchange);

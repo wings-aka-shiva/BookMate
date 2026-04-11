@@ -15,6 +15,11 @@ export type ExchangeDto = {
   extensionRequested: boolean;
   extendedDueDate: string | null;
   rejectionReason: string | null;
+  handoverConfirmedByOwner: boolean;
+  handoverConfirmedByRequester: boolean;
+  returnConfirmedByRequester: boolean;
+  returnConfirmedByOwner: boolean;
+  returnLocation: string | null;
   createdAt: string;
   completedAt: string | null;
 };
@@ -40,5 +45,14 @@ export const setPickup = (id: string, pickupLocation: string) =>
 export const completeExchange = (id: string) =>
   api.patch<ExchangeDto>(`/exchanges/${id}/complete`);
 
-export const returnExchange = (id: string) =>
-  api.patch<ExchangeDto>(`/exchanges/${id}/return`);
+export const confirmHandoverByOwner = (id: string) =>
+  api.patch<ExchangeDto>(`/exchanges/${id}/handover/owner`);
+
+export const confirmHandoverByRequester = (id: string) =>
+  api.patch<ExchangeDto>(`/exchanges/${id}/handover/requester`);
+
+export const confirmReturnByRequester = (id: string, returnLocation: string) =>
+  api.patch<ExchangeDto>(`/exchanges/${id}/return/requester`, { returnLocation });
+
+export const confirmReturnByOwner = (id: string) =>
+  api.patch<ExchangeDto>(`/exchanges/${id}/return/owner`);

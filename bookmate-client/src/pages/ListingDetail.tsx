@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ListingDto } from '../api/listings';
 import { getListingById, deleteListing } from '../api/listings';
+import { requestExchange } from '../api/exchanges';
 import { useAuth } from '../context/AuthContext';
 
 export default function ListingDetail() {
@@ -12,7 +13,9 @@ export default function ListingDetail() {
   const [listing, setListing]   = useState<ListingDto | null>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
-  const [deleting, setDeleting] = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [requestError, setRequestError] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -83,11 +86,27 @@ export default function ListingDetail() {
         ) : (
           <div style={styles.actionRow}>
             <p style={styles.muted}>Interested in this book?</p>
-            <button style={styles.requestBtn} disabled>
-              Request Exchange
+            <button
+              style={styles.requestBtn}
+              disabled={isOwner || requesting}
+              onClick={async () => {
+                setRequesting(true);
+                setRequestError('');
+                try {
+                  await requestExchange(listing.id, listing.exchangeType);
+                  navigate('/exchanges');
+                } catch (err: unknown) {
+                  const msg = (err as { response?: { data?: string } })?.response?.data;
+                  setRequestError(typeof msg === 'string' ? msg : 'Failed to request exchange.');
+                  setRequesting(false);
+                }
+              }}
+            >
+              {requesting ? 'Requesting…' : 'Request Exchange'}
             </button>
           </div>
         )}
+        {requestError && <p style={styles.requestError}>{requestError}</p>}
       </div>
     </div>
   );
@@ -133,5 +152,6 @@ const styles: Record<string, React.CSSProperties> = {
   actionRow:       { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   ownerNote:       { color: '#6b7280', fontSize: '0.875rem', margin: 0 },
   deleteBtn:       { background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.25rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' },
-  requestBtn:      { background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.25rem', fontWeight: 600, cursor: 'not-allowed', fontSize: '0.875rem', opacity: 0.6 },
+  requestBtn:      { background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.25rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' },
+  requestError:    { color: '#dc2626', fontSize: '0.85rem', margin: '0.75rem 0 0' },
 };

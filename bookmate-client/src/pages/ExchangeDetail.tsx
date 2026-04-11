@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ExchangeDto } from '../api/exchanges';
-import { getExchange, acceptExchange, rejectExchange, setPickup, returnExchange } from '../api/exchanges';
+import {
+  getExchange,
+  acceptExchange,
+  rejectExchange,
+  setPickup,
+  confirmHandoverByOwner,
+  confirmHandoverByRequester,
+  confirmReturnByRequester,
+  confirmReturnByOwner,
+} from '../api/exchanges';
 import { useAuth } from '../context/AuthContext';
 
 const PICKUP_OPTIONS = [
@@ -12,12 +21,13 @@ const PICKUP_OPTIONS = [
 ];
 
 const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
-  Pending:   { color: '#d97706', bg: '#fef3c7' },
-  Accepted:  { color: '#059669', bg: '#d1fae5' },
-  Completed: { color: '#059669', bg: '#d1fae5' },
-  Returned:  { color: '#2563eb', bg: '#dbeafe' },
-  Rejected:  { color: '#dc2626', bg: '#fee2e2' },
-  Defaulted: { color: '#dc2626', bg: '#fee2e2' },
+  Pending:    { color: '#d97706', bg: '#fef3c7' },
+  Accepted:   { color: '#059669', bg: '#d1fae5' },
+  InProgress: { color: '#2563eb', bg: '#dbeafe' },
+  Completed:  { color: '#059669', bg: '#d1fae5' },
+  Returned:   { color: '#2563eb', bg: '#dbeafe' },
+  Rejected:   { color: '#dc2626', bg: '#fee2e2' },
+  Defaulted:  { color: '#dc2626', bg: '#fee2e2' },
 };
 
 export default function ExchangeDetail() {
@@ -25,12 +35,13 @@ export default function ExchangeDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [exchange, setExchange]       = useState<ExchangeDto | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState('');
-  const [actionError, setActionError] = useState('');
-  const [busy, setBusy]               = useState(false);
+  const [exchange, setExchange]             = useState<ExchangeDto | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState('');
+  const [actionError, setActionError]       = useState('');
+  const [busy, setBusy]                     = useState(false);
   const [pickupLocation, setPickupLocation] = useState(PICKUP_OPTIONS[0]);
+  const [returnLocation, setReturnLocation] = useState(PICKUP_OPTIONS[0]);
 
   const load = async () => {
     if (!id) return;
@@ -70,6 +81,38 @@ export default function ExchangeDetail() {
   const otherParty    = isRequester ? exchange.ownerName : exchange.requesterName;
   const statusStyle   = STATUS_STYLES[exchange.status] ?? { color: '#6b7280', bg: '#f3f4f6' };
 
+  // Derive which action panel to show
+  const showAcceptReject =
+    isOwner && exchange.status === 'Pending';
+
+  const showSetPickup =
+    isOwner && exchange.status === 'Accepted' && !exchange.pickupLocation;
+
+  const showOwnerHandover =
+    isOwner && exchange.status === 'Accepted' && !!exchange.pickupLocation && !exchange.handoverConfirmedByOwner;
+
+  const showOwnerHandoverWaiting =
+    isOwner && exchange.status === 'Accepted' &&
+    exchange.handoverConfirmedByOwner && !exchange.handoverConfirmedByRequester;
+
+  const showRequesterHandover =
+    isRequester && exchange.status === 'Accepted' &&
+    exchange.handoverConfirmedByOwner && !exchange.handoverConfirmedByRequester;
+
+  const showRequesterReturn =
+    isRequester && exchange.status === 'InProgress' && !exchange.returnConfirmedByRequester;
+
+  const showRequesterReturnWaiting =
+    isRequester && exchange.status === 'InProgress' && exchange.returnConfirmedByRequester;
+
+  const showOwnerReturnConfirm =
+    isOwner && exchange.status === 'InProgress' &&
+    exchange.returnConfirmedByRequester && !exchange.returnConfirmedByOwner;
+
+  const hasActions =
+    showAcceptReject || showSetPickup || showOwnerHandover || showOwnerHandoverWaiting ||
+    showRequesterHandover || showRequesterReturn || showRequesterReturnWaiting || showOwnerReturnConfirm;
+
   return (
     <div style={styles.page}>
       <button style={styles.back} onClick={() => navigate('/exchanges')}>← Back</button>
@@ -84,9 +127,9 @@ export default function ExchangeDetail() {
         </div>
 
         <div style={styles.metaGrid}>
-          <Field label="Type"        value={exchange.type} />
+          <Field label="Type"     value={exchange.type} />
           <Field label={isRequester ? 'Owner' : 'Requester'} value={otherParty} />
-          <Field label="Created"     value={new Date(exchange.createdAt).toLocaleDateString()} />
+          <Field label="Created"  value={new Date(exchange.createdAt).toLocaleDateString()} />
           {exchange.completedAt && (
             <Field label="Completed" value={new Date(exchange.completedAt).toLocaleDateString()} />
           )}
@@ -96,6 +139,9 @@ export default function ExchangeDetail() {
           {exchange.dueDate && (
             <Field label="Due"       value={new Date(exchange.dueDate).toLocaleDateString()} />
           )}
+          {exchange.returnLocation && (
+            <Field label="Return location" value={exchange.returnLocation} />
+          )}
           {exchange.rejectionReason && (
             <Field label="Rejection reason" value={exchange.rejectionReason} />
           )}
@@ -103,27 +149,21 @@ export default function ExchangeDetail() {
       </div>
 
       {/* Action card */}
-      {(isOwner || isRequester) && (
+      {(isOwner || isRequester) && hasActions && (
         <div style={styles.card}>
           {actionError && <p style={styles.actionError}>{actionError}</p>}
 
           {/* Owner + Pending → Accept / Reject */}
-          {isOwner && exchange.status === 'Pending' && (
+          {showAcceptReject && (
             <div style={styles.actionRow}>
               <p style={styles.actionLabel}>Respond to this request</p>
               <div style={styles.btnGroup}>
-                <button
-                  style={styles.acceptBtn}
-                  disabled={busy}
-                  onClick={() => run(() => acceptExchange(exchange.id))}
-                >
+                <button style={styles.acceptBtn} disabled={busy}
+                  onClick={() => run(() => acceptExchange(exchange.id))}>
                   {busy ? '…' : 'Accept'}
                 </button>
-                <button
-                  style={styles.rejectBtn}
-                  disabled={busy}
-                  onClick={() => run(() => rejectExchange(exchange.id))}
-                >
+                <button style={styles.rejectBtn} disabled={busy}
+                  onClick={() => run(() => rejectExchange(exchange.id))}>
                   {busy ? '…' : 'Reject'}
                 </button>
               </div>
@@ -131,40 +171,82 @@ export default function ExchangeDetail() {
           )}
 
           {/* Owner + Accepted + no pickup → Set Pickup */}
-          {isOwner && exchange.status === 'Accepted' && !exchange.pickupLocation && (
+          {showSetPickup && (
             <div style={styles.actionRow}>
               <p style={styles.actionLabel}>Set a pickup location</p>
               <div style={styles.pickupRow}>
-                <select
-                  style={styles.select}
-                  value={pickupLocation}
-                  onChange={e => setPickupLocation(e.target.value)}
-                >
-                  {PICKUP_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
+                <select style={styles.select} value={pickupLocation}
+                  onChange={e => setPickupLocation(e.target.value)}>
+                  {PICKUP_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
-                <button
-                  style={styles.confirmBtn}
-                  disabled={busy}
-                  onClick={() => run(() => setPickup(exchange.id, pickupLocation))}
-                >
+                <button style={styles.confirmBtn} disabled={busy}
+                  onClick={() => run(() => setPickup(exchange.id, pickupLocation))}>
                   {busy ? '…' : 'Confirm Pickup'}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Requester + Accepted + Temporary → Return */}
-          {isRequester && exchange.status === 'Accepted' && exchange.type === 'Temporary' && (
+          {/* Owner + Accepted + not yet confirmed handover */}
+          {showOwnerHandover && (
             <div style={styles.actionRow}>
-              <p style={styles.actionLabel}>Ready to return this book?</p>
-              <button
-                style={styles.returnBtn}
-                disabled={busy}
-                onClick={() => run(() => returnExchange(exchange.id))}
-              >
-                {busy ? '…' : 'Return Book'}
+              <p style={styles.actionLabel}>Have you handed over the book?</p>
+              <button style={styles.confirmBtn} disabled={busy}
+                onClick={() => run(() => confirmHandoverByOwner(exchange.id))}>
+                {busy ? '…' : 'I handed over the book'}
+              </button>
+            </div>
+          )}
+
+          {/* Owner waiting for requester to confirm receipt */}
+          {showOwnerHandoverWaiting && (
+            <p style={styles.waitingMsg}>
+              Waiting for {exchange.requesterName} to confirm they received the book.
+            </p>
+          )}
+
+          {/* Requester + Accepted + owner confirmed → confirm receipt */}
+          {showRequesterHandover && (
+            <div style={styles.actionRow}>
+              <p style={styles.actionLabel}>Have you received the book?</p>
+              <button style={styles.confirmBtn} disabled={busy}
+                onClick={() => run(() => confirmHandoverByRequester(exchange.id))}>
+                {busy ? '…' : 'I received the book'}
+              </button>
+            </div>
+          )}
+
+          {/* Requester + InProgress + not yet confirmed return */}
+          {showRequesterReturn && (
+            <div style={styles.actionRow}>
+              <p style={styles.actionLabel}>Ready to return the book?</p>
+              <div style={styles.pickupRow}>
+                <select style={styles.select} value={returnLocation}
+                  onChange={e => setReturnLocation(e.target.value)}>
+                  {PICKUP_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <button style={styles.returnBtn} disabled={busy}
+                  onClick={() => run(() => confirmReturnByRequester(exchange.id, returnLocation))}>
+                  {busy ? '…' : 'I returned the book'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Requester waiting for owner to confirm receipt of return */}
+          {showRequesterReturnWaiting && (
+            <p style={styles.waitingMsg}>
+              Waiting for owner to confirm they received the book back.
+            </p>
+          )}
+
+          {/* Owner + InProgress + requester confirmed return */}
+          {showOwnerReturnConfirm && (
+            <div style={styles.actionRow}>
+              <p style={styles.actionLabel}>Have you received the book back?</p>
+              <button style={styles.confirmBtn} disabled={busy}
+                onClick={() => run(() => confirmReturnByOwner(exchange.id))}>
+                {busy ? '…' : 'I received the book back'}
               </button>
             </div>
           )}
@@ -201,6 +283,7 @@ const styles: Record<string, React.CSSProperties> = {
   actionRow:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' },
   actionLabel: { margin: 0, fontSize: '0.9rem', color: '#374151', fontWeight: 500 },
   actionError: { color: '#dc2626', fontSize: '0.85rem', margin: '0 0 1rem' },
+  waitingMsg:  { margin: 0, fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic' },
   btnGroup:    { display: 'flex', gap: '0.6rem' },
   acceptBtn:   { background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1.1rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' },
   rejectBtn:   { background: '#fff', color: '#dc2626', border: '1px solid #dc2626', borderRadius: 8, padding: '0.5rem 1.1rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' },
