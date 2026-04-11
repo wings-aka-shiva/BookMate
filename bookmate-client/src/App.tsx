@@ -7,6 +7,8 @@ import BookDetail from './pages/BookDetail'
 import Listings from './pages/Listings'
 import ListingDetail from './pages/ListingDetail'
 import CreateListing from './pages/CreateListing'
+import Exchanges from './pages/Exchanges'
+import ExchangeDetail from './pages/ExchangeDetail'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -29,6 +31,12 @@ function App() {
         } />
         <Route path="/listings/:id" element={
           <ProtectedRoute><ListingDetail /></ProtectedRoute>
+        } />
+        <Route path="/exchanges" element={
+          <ProtectedRoute><Exchanges /></ProtectedRoute>
+        } />
+        <Route path="/exchanges/:id" element={
+          <ProtectedRoute><ExchangeDetail /></ProtectedRoute>
         } />
       </Routes>
     </BrowserRouter>

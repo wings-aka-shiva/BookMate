@@ -105,15 +105,60 @@ namespace BookMate.API.Controllers
             catch (Exception) { return StatusCode(500); }
         }
 
-        [HttpPatch("api/exchanges/{id:guid}/return")]
-        public async Task<IActionResult> Return(Guid id)
+        [HttpPatch("api/exchanges/{id:guid}/handover/owner")]
+        public async Task<IActionResult> ConfirmHandoverByOwner(Guid id)
+        {
+            try
+            {
+                var ownerId = GetUserId();
+                if (ownerId == null) return Unauthorized();
+
+                var exchange = await _exchangeService.ConfirmHandoverByOwnerAsync(id, ownerId.Value);
+                return Ok(exchange);
+            }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+            catch (Exception) { return StatusCode(500); }
+        }
+
+        [HttpPatch("api/exchanges/{id:guid}/handover/requester")]
+        public async Task<IActionResult> ConfirmHandoverByRequester(Guid id)
         {
             try
             {
                 var requesterId = GetUserId();
                 if (requesterId == null) return Unauthorized();
 
-                var exchange = await _exchangeService.ReturnAsync(id, requesterId.Value);
+                var exchange = await _exchangeService.ConfirmHandoverByRequesterAsync(id, requesterId.Value);
+                return Ok(exchange);
+            }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+            catch (Exception) { return StatusCode(500); }
+        }
+
+        [HttpPatch("api/exchanges/{id:guid}/return/requester")]
+        public async Task<IActionResult> ConfirmReturnByRequester(Guid id, [FromBody] SetReturnLocationDto dto)
+        {
+            try
+            {
+                var requesterId = GetUserId();
+                if (requesterId == null) return Unauthorized();
+
+                var exchange = await _exchangeService.ConfirmReturnByRequesterAsync(id, requesterId.Value, dto.ReturnLocation);
+                return Ok(exchange);
+            }
+            catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+            catch (Exception) { return StatusCode(500); }
+        }
+
+        [HttpPatch("api/exchanges/{id:guid}/return/owner")]
+        public async Task<IActionResult> ConfirmReturnByOwner(Guid id)
+        {
+            try
+            {
+                var ownerId = GetUserId();
+                if (ownerId == null) return Unauthorized();
+
+                var exchange = await _exchangeService.ConfirmReturnByOwnerAsync(id, ownerId.Value);
                 return Ok(exchange);
             }
             catch (InvalidOperationException ex) { return BadRequest(ex.Message); }

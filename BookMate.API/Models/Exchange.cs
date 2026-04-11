@@ -19,6 +19,12 @@ namespace BookMate.API.Models
         public DateTime? ExtendedDueDate { get; set; }
         public string? RejectionReason { get; set; }
 
+        public bool HandoverConfirmedByOwner { get; set; } = false;
+        public bool HandoverConfirmedByRequester { get; set; } = false;
+        public bool ReturnConfirmedByRequester { get; set; } = false;
+        public bool ReturnConfirmedByOwner { get; set; } = false;
+        public string? ReturnLocation { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? CompletedAt { get; set; }
 

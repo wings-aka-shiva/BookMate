@@ -16,6 +16,11 @@ namespace BookMate.API.DTOs
         public bool ExtensionRequested { get; set; }
         public DateTime? ExtendedDueDate { get; set; }
         public string? RejectionReason { get; set; }
+        public bool HandoverConfirmedByOwner { get; set; }
+        public bool HandoverConfirmedByRequester { get; set; }
+        public bool ReturnConfirmedByRequester { get; set; }
+        public bool ReturnConfirmedByOwner { get; set; }
+        public string? ReturnLocation { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
     }

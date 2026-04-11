@@ -126,9 +126,6 @@ namespace BookMate.API.Services
 
             exchange.Status = "Accepted";
 
-            if (exchange.Type == "Temporary")
-                exchange.DueDate = DateTime.UtcNow.AddDays(28);
-
             // Mark listing as Taken
             var listing = await _db.Listings.FindAsync(exchange.ListingId);
             if (listing != null)
@@ -243,28 +240,122 @@ namespace BookMate.API.Services
             return MapToDto(full);
         }
 
-        public async Task<ExchangeResponseDto> ReturnAsync(Guid exchangeId, Guid requesterId)
+        public async Task<ExchangeResponseDto> ConfirmHandoverByOwnerAsync(Guid exchangeId, Guid ownerId)
+        {
+            var exchange = await _exchangeRepo.GetByIdAsync(exchangeId)
+                ?? throw new InvalidOperationException("Exchange not found.");
+
+            if (exchange.OwnerId != ownerId)
+                throw new InvalidOperationException("Only the listing owner can confirm handover.");
+
+            if (exchange.Status != "Accepted")
+                throw new InvalidOperationException("Only Accepted exchanges can confirm handover.");
+
+            exchange.HandoverConfirmedByOwner = true;
+
+            if (exchange.HandoverConfirmedByRequester)
+            {
+                exchange.Status  = "InProgress";
+                exchange.DueDate = DateTime.UtcNow.AddDays(28);
+            }
+
+            await _exchangeRepo.UpdateAsync(exchange);
+
+            var full = await _exchangeRepo.GetByIdAsync(exchangeId)
+                ?? throw new InvalidOperationException("Failed to reload exchange.");
+
+            return MapToDto(full);
+        }
+
+        public async Task<ExchangeResponseDto> ConfirmHandoverByRequesterAsync(Guid exchangeId, Guid requesterId)
         {
             var exchange = await _exchangeRepo.GetByIdAsync(exchangeId)
                 ?? throw new InvalidOperationException("Exchange not found.");
 
             if (exchange.RequesterId != requesterId)
-                throw new InvalidOperationException("Only the requester can mark a book as returned.");
+                throw new InvalidOperationException("Only the requester can confirm handover.");
 
             if (exchange.Status != "Accepted")
-                throw new InvalidOperationException("Only Accepted exchanges can be returned.");
+                throw new InvalidOperationException("Only Accepted exchanges can confirm handover.");
 
-            if (exchange.Type != "Temporary")
-                throw new InvalidOperationException("Only Temporary exchanges can be returned.");
+            exchange.HandoverConfirmedByRequester = true;
 
-            exchange.Status      = "Returned";
-            exchange.CompletedAt = DateTime.UtcNow;
-
-            // +15 reputation to Requester for returning on time
-            var requester = await _db.Users.FindAsync(requesterId);
-            if (requester != null)
+            if (exchange.HandoverConfirmedByOwner)
             {
-                requester.ReputationScore += 15;
+                exchange.Status  = "InProgress";
+                exchange.DueDate = DateTime.UtcNow.AddDays(28);
+
+                var owner     = await _db.Users.FindAsync(exchange.OwnerId);
+                var requester = await _db.Users.FindAsync(requesterId);
+                if (owner     != null) owner.ReputationScore     += 10;
+                if (requester != null) requester.ReputationScore += 5;
+                await _db.SaveChangesAsync();
+            }
+
+            await _exchangeRepo.UpdateAsync(exchange);
+
+            var full = await _exchangeRepo.GetByIdAsync(exchangeId)
+                ?? throw new InvalidOperationException("Failed to reload exchange.");
+
+            return MapToDto(full);
+        }
+
+        public async Task<ExchangeResponseDto> ConfirmReturnByRequesterAsync(Guid exchangeId, Guid requesterId, string returnLocation)
+        {
+            var exchange = await _exchangeRepo.GetByIdAsync(exchangeId)
+                ?? throw new InvalidOperationException("Exchange not found.");
+
+            if (exchange.RequesterId != requesterId)
+                throw new InvalidOperationException("Only the requester can confirm return.");
+
+            if (exchange.Status != "InProgress")
+                throw new InvalidOperationException("Only InProgress exchanges can confirm return.");
+
+            exchange.ReturnConfirmedByRequester = true;
+            exchange.ReturnLocation             = returnLocation;
+
+            if (exchange.ReturnConfirmedByOwner)
+            {
+                exchange.Status      = "Completed";
+                exchange.CompletedAt = DateTime.UtcNow;
+
+                var requester = await _db.Users.FindAsync(requesterId);
+                var owner     = await _db.Users.FindAsync(exchange.OwnerId);
+                if (requester != null) requester.ReputationScore += 15;
+                if (owner     != null) owner.ReputationScore     += 5;
+                await _db.SaveChangesAsync();
+            }
+
+            await _exchangeRepo.UpdateAsync(exchange);
+
+            var full = await _exchangeRepo.GetByIdAsync(exchangeId)
+                ?? throw new InvalidOperationException("Failed to reload exchange.");
+
+            return MapToDto(full);
+        }
+
+        public async Task<ExchangeResponseDto> ConfirmReturnByOwnerAsync(Guid exchangeId, Guid ownerId)
+        {
+            var exchange = await _exchangeRepo.GetByIdAsync(exchangeId)
+                ?? throw new InvalidOperationException("Exchange not found.");
+
+            if (exchange.OwnerId != ownerId)
+                throw new InvalidOperationException("Only the listing owner can confirm return.");
+
+            if (exchange.Status != "InProgress")
+                throw new InvalidOperationException("Only InProgress exchanges can confirm return.");
+
+            exchange.ReturnConfirmedByOwner = true;
+
+            if (exchange.ReturnConfirmedByRequester)
+            {
+                exchange.Status      = "Completed";
+                exchange.CompletedAt = DateTime.UtcNow;
+
+                var requester = await _db.Users.FindAsync(exchange.RequesterId);
+                var owner     = await _db.Users.FindAsync(ownerId);
+                if (requester != null) requester.ReputationScore += 15;
+                if (owner     != null) owner.ReputationScore     += 5;
                 await _db.SaveChangesAsync();
             }
 
@@ -291,9 +382,14 @@ namespace BookMate.API.Services
             DueDate            = e.DueDate,
             ExtensionRequested = e.ExtensionRequested,
             ExtendedDueDate    = e.ExtendedDueDate,
-            RejectionReason    = e.RejectionReason,
-            CreatedAt          = e.CreatedAt,
-            CompletedAt        = e.CompletedAt
+            RejectionReason              = e.RejectionReason,
+            HandoverConfirmedByOwner     = e.HandoverConfirmedByOwner,
+            HandoverConfirmedByRequester = e.HandoverConfirmedByRequester,
+            ReturnConfirmedByRequester   = e.ReturnConfirmedByRequester,
+            ReturnConfirmedByOwner       = e.ReturnConfirmedByOwner,
+            ReturnLocation               = e.ReturnLocation,
+            CreatedAt                    = e.CreatedAt,
+            CompletedAt                  = e.CompletedAt
         };
     }
 }
