@@ -11,10 +11,12 @@ namespace BookMate.API.Controllers
     public class UsersController : ControllerBase
     {
         private readonly UserService _userService;
+        private readonly IExchangeService _exchangeService;
 
-        public UsersController(UserService userService)
+        public UsersController(UserService userService, IExchangeService exchangeService)
         {
             _userService = userService;
+            _exchangeService = exchangeService;
         }
 
         [HttpGet("{id:guid}")]
@@ -48,7 +50,11 @@ namespace BookMate.API.Controllers
         public IActionResult GetListings(Guid id) => Ok(new List<object>());
 
         [HttpGet("{id:guid}/exchanges")]
-        public IActionResult GetExchanges(Guid id) => Ok(new List<object>());
+        public async Task<IActionResult> GetExchanges(Guid id)
+        {
+            var exchanges = await _exchangeService.GetByUserIdAsync(id);
+            return Ok(exchanges);
+        }
 
         [HttpPatch("{id:guid}/archive")]
         public async Task<IActionResult> ArchiveAccount(Guid id)
